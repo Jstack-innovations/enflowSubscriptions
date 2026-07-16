@@ -21,7 +21,15 @@ function sendEmail($to, $subject, $body) {
         CURLOPT_POST => true,
         CURLOPT_POSTFIELDS => json_encode($payload),
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 10
+        CURLOPT_TIMEOUT => 10,
+
+        // PRODUCTION (active)
+        //CURLOPT_SSL_VERIFYPEER => true,
+        //CURLOPT_SSL_VERIFYHOST => 2,
+
+        // LOCAL DEV (uncomment these two + comment out the two above)
+         CURLOPT_SSL_VERIFYPEER => false,
+         CURLOPT_SSL_VERIFYHOST => 0,
     ]);
 
     $response = curl_exec($ch);

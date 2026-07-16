@@ -82,6 +82,15 @@ $ch = curl_init("https://api.flutterwave.com/v3/transactions/{$transaction_id}/v
 curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_TIMEOUT        => 15,
+
+    // FOR PRODUCTION
+    // CURLOPT_SSL_VERIFYPEER => true,
+    // CURLOPT_SSL_VERIFYHOST => 2,
+
+    // FOR LOCAL
+    CURLOPT_SSL_VERIFYPEER => false,
+    CURLOPT_SSL_VERIFYHOST => 0,
+
     CURLOPT_HTTPHEADER     => [
         "Authorization: Bearer {$FLW_SECRET}",
         "Content-Type: application/json",

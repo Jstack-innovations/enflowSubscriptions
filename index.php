@@ -2,14 +2,30 @@
 
 header('Content-Type: application/json');
 
+
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $uri = rtrim($uri, '/');
+
+/*THIS LINE FOR LOCAL SERVER ROUTING*/
+$baseName = '/enflowCentralServer';
+if (str_starts_with($uri, $baseName)) {
+    $uri = substr($uri, strlen($baseName));
+}
+/*END IT*/
+
 
 $basePath = __DIR__ . "/api";
 
 /* API ROOT */
 if ($uri === '' || $uri === '/') {
     echo json_encode(["message" => "API running"]);
+    exit;
+}
+
+
+
+if ($uri === "/env") {
+    require $basePath . "/env.php";
     exit;
 }
 
@@ -27,7 +43,7 @@ if ($uri === "/sendTelegramReport") {
 
 /*GET*/
 if ($uri === "/subscriptionContent") {
-    require $basePath . "/plans/GET/CORS/jsonplans.php";
+    require $basePath . "/plans/GET/CORS/subscriptionContent.php";
     exit;
 }
 

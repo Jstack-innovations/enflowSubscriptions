@@ -14,17 +14,32 @@ $user = authenticate($pdo);
 // --- Fetch local stats if local_server_url exists ---
 $local_stats = null;
 if (!empty($user["local_server_url"])) {
-    $local_url = rtrim($user["local_server_url"], "/") . "/stats";
+    $local_url = rtrim($user["local_server_url"], "/") . "/api/admins/GET/stats.php";
     
-    $ch = curl_init($local_url);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        "X-User-Email: " . $user["email"]
-    ]);
-    $response = curl_exec($ch);
-    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
+    
+    //FOR PRODUCTION LIVE 
+   // $local_stats = null;
+//if (!empty($user["local_server_url"])) {
+   // $local_url = rtrim($user["local_server_url"], "/") . "/stats";
+    
+$ch = curl_init($local_url);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    "X-User-Email: " . $user["email"]
+]);
+
+// PRODUCTION (active)
+//curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+//curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+
+// LOCAL DEV (uncomment these two + comment out the two above)
+curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+
+$response = curl_exec($ch);
+$http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+curl_close($ch);
 
     if ($http_code === 200 && $response) {
         $decoded = json_decode($response, true);

@@ -37,6 +37,15 @@ curl_setopt_array($curl, [
     CURLOPT_URL            => "https://api.flutterwave.com/v3/transactions/$tx_id/verify",
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_CUSTOMREQUEST  => "GET",
+
+    // PRODUCTION (active)
+    //CURLOPT_SSL_VERIFYPEER => true,
+    //CURLOPT_SSL_VERIFYHOST => 2,
+
+    // LOCAL DEV (uncomment these two + comment out the two above)
+     CURLOPT_SSL_VERIFYPEER => false,
+     CURLOPT_SSL_VERIFYHOST => 0,
+
     CURLOPT_HTTPHEADER     => [
         "Authorization: Bearer $secretKey",
         "Content-Type: application/json"
@@ -80,7 +89,7 @@ $fetch = $conn->prepare("
 ");
 $fetch->bind_param("s", $email);
 $fetch->execute();
-$existing = $fetch->get_result()->fetch_assoc();
+$existing = $fetch->get_result()->fetch_assoc() ?: [];
 
 /* ===== MERGE — existing row wins unless frontend sends override ===== */
 $fullname      = $data['fullname']      ?? $existing['fullname']      ?? '';
@@ -123,7 +132,7 @@ if (stripos($plan, "zara + app") !== false || stripos($plan, "zara+app") !== fal
 }
 
 /* ===== SUB CODE ===== */
-$subscriptionCode = "SUB-" . strtoupper(substr(md5(uniqid()), 0, 10));
+$subscriptionCode = "SUB-" . strtoupper(substr(md5(uniqid('', true)), 0, 10));
 
 /* ===== UPDATE OR INSERT ===== */
 if ($existing) {         
@@ -179,10 +188,49 @@ if ($existing) {
     );
 }
 
-if (!$stmt->execute()) {
-    echo json_encode(["status" => "error", "message" => $stmt->error]);
+$writeAttempts = 0;
+while (true) {
+    $writeAttempts++;
+    try {
+        if ($stmt->execute()) {
+            break;
+        }
+        $dbError = $stmt->error;
+    } catch (\Throwable $e) {
+        $dbError = $e->getMessage();
+    }
+
+    $isDupCode = (stripos($dbError, 'subscription_code') !== false);
+    if ($isDupCode && $writeAttempts < 5) {
+        $subscriptionCode = "SUB-" . strtoupper(substr(md5(uniqid('', true)), 0, 10));
+        if ($existing) {
+            $stmt->bind_param(
+                "ssssssssssiisdsssis",
+                $fullname, $username, $phone, $country, $dob,
+                $gender, $businessType, $businessName, $website,
+                $currency, $numLocations, $numStaff,
+                $plan, $amount, $tx_id, $subscriptionCode,
+                $renewalDate, $zaraCredits, $email
+            );
+        } else {
+            $stmt->bind_param(
+                "ssssssssssssiidsssi",
+                $fullname, $username, $email, $phone, $country, $dob,
+                $gender, $businessType, $businessName, $website,
+                $currency, $numLocations, $numStaff,
+                $plan, $amount, $tx_id, $subscriptionCode,
+                $renewalDate, $zaraCredits
+            );
+        }
+        continue;
+    }
+
+    error_log("subPlans DB write failed: " . $dbError);
+    echo json_encode(["status" => "error", "message" => "Subscription could not be saved. Please contact support."]);
     exit;
 }
+
+try {
 
 /* ===== TELEGRAM ===== */
 $botToken   = getenv("TELEGRAM_BOT_TOKEN");
@@ -328,6 +376,10 @@ $emailBody = <<<HTML
 HTML;
 
 sendEmail($email, "Your EnflowAI Subscription is Active 🎉", $emailBody);
+
+} catch (\Throwable $e) {
+    error_log("subPlans notification failure (non-fatal): " . $e->getMessage());
+}
 
 echo json_encode([
     "status"            => "success",
